@@ -1,0 +1,55 @@
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'jacoco'
+buildscript {
+  repositories {
+    maven {
+      url "https://plugins.gradle.org/m2/"
+    }
+  }
+  dependencies {
+    classpath "org.springframework.boot:spring-boot-gradle-plugin:1.5.9.RELEASE"
+  }
+}
+
+apply plugin: "org.springframework.boot"
+
+// In this section you declare where to find the dependencies of your project
+repositories {
+    mavenCentral()
+}
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+version =  '1.0.0'
+dependencies {
+    compile 'org.springframework.boot:spring-boot-starter-web:1.5.9.RELEASE'
+    testCompile 'junit:junit:4.12'
+    testCompile 'org.springframework.boot:spring-boot-starter-test:1.5.9.RELEASE'
+}
+jar {
+    baseName = 'arachnoid'
+    
+}
+
+test {
+    jacoco {
+        append = true
+    }
+}
+
+
+jacocoTestReport {
+    reports {
+        xml.enabled false
+        csv.enabled false
+        html.destination file("${buildDir}/jacocoHtml")
+        
+    }
+}
+
+
+task start(type:JavaExec) {
+   main = 'arachnoid.server.App'
+   classpath = sourceSets.main.runtimeClasspath
+}

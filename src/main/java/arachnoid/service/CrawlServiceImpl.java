@@ -27,11 +27,10 @@ import arachnoid.to.Response;
 public class CrawlServiceImpl implements CrawlService {
 
 	private RestTemplate http;
-	private Map<String, Response> cache = new HashMap<String, Response>();
+	private Map<String, String> cache = new HashMap<String, String>();
 
 	private static Logger logger = Logger.getLogger(CrawlServiceImpl.class);
 
-	
 	private Response processNode(Response node, Options pref) {
 		Integer linkCounter = 0;
 
@@ -42,58 +41,38 @@ public class CrawlServiceImpl implements CrawlService {
 		node.setUri(uri);
 		node.incrementDepth();
 
-		logger.debug("["+node.getDepth()+"] Procesing URI : " + node.getUri());
+		logger.debug("[" + node.getDepth() + "] Procesing URI : "
+				+ node.getUri());
 
 		if (!validURL(uri)) {
 			return null;
 		}
 
 		try {
-			URL me = new URL(uri);
-
-			ResponseEntity<String> response = getResponse(uri);
-			if (response.getHeaders().getContentType()
-					.includes(MediaType.TEXT_HTML)) {
-				String responseBody = response.getBody();
-				Pattern title = Pattern.compile(Constants.Patterns.PAGE_TITLE,
-						Pattern.DOTALL);
-				Matcher getTitle = title.matcher(responseBody);
-
-				while (getTitle.find()) {
-					node.setTitle(getTitle.group(1));
-				}
-				Pattern links = Pattern.compile(Constants.Patterns.PAGE_LINKS,
-						Pattern.DOTALL);
-				Matcher checkLinks = links.matcher(responseBody);
-
-				while (checkLinks.find()) {
-
-					String child_uri = checkLinks.group(1);
-
-					child_uri = handleStructure(child_uri, me);
-					if (!validURL(child_uri)) {
-						continue;
-					}
-
-					if (!child_uri.equals(uri)) {
-						Response childNode = new Response();
-						childNode.setUri(child_uri);
-						childNode.setDepth(node.getDepth());
-						if (node.getDepth() < pref.getDepth()
-								&& linkCounter < pref.getMaxLinksperNode()) {
-							node.getNodes().add(childNode);
-						}
-					}
-				}
-				ArrayList<Response> processed = processInputs(node.getNodes(),
-						pref);
-				node.setNodes(processed);
-
+			String responseBody = (cache.get(uri) != null) ? cache.get(uri)
+					: null;
+			if (null != responseBody) {
+					logger.info("Loaded from Cache... "+uri);
+			
 			}
+			if (null == responseBody) {
+				responseBody = getResponse(uri);
+				logger.info("Loaded from Server... "+uri);
+			}
+			if (null != responseBody) {
+				cache.put(uri, responseBody);
+			} else {
+				throw new Exception("Null Response from URI " + uri);
+			}
+
+			extractLinks(node, pref, responseBody);
+			ArrayList<Response> processed = processChildNodes(node.getNodes(), pref);
+			node.setNodes(processed);
 		} catch (Exception e) {
 			e.printStackTrace();
 			// silent catch
-			logger.error("Arachnoid is not able to process further "
+			logger.error("URI " + uri);
+			logger.error("Arachnoid is not able to process further , "
 					+ e.getLocalizedMessage());
 			return null;
 		}
@@ -103,8 +82,55 @@ public class CrawlServiceImpl implements CrawlService {
 		return node;
 	}
 
-	public ResponseEntity<String> getResponse(String uri) {
-		return getHttp().getForEntity(uri, String.class);
+	private void extractLinks(Response node, Options pref,
+			String responseBody) throws Exception {
+		logger.debug(pref.toString());
+		long start = System.currentTimeMillis();
+		String uri = node.getUri();
+		URL me = new URL(uri);
+		Pattern title = Pattern.compile(Constants.Patterns.PAGE_TITLE);
+		Matcher getTitle = title.matcher(responseBody);
+
+		while (getTitle.find()) {
+			node.setTitle(getTitle.group(1));
+		}
+		Pattern links = Pattern.compile(Constants.Patterns.PAGE_LINKS);
+		Matcher checkLinks = links.matcher(responseBody);
+		int linkCounter=0;
+
+		while (checkLinks.find()) {
+
+			String child_uri = checkLinks.group(1);
+
+			child_uri = handleStructure(child_uri, me);
+			if (!validURL(child_uri)) {
+				continue;
+			}
+			linkCounter++;
+
+			if (!child_uri.equals(uri)) {
+				Response childNode = new Response();
+				childNode.setUri(child_uri);
+				childNode.setDepth(node.getDepth());
+				if (node.getDepth() <= pref.getDepth()
+						&& linkCounter <= pref.getMaxLinksperNode()) {
+					node.getNodes().add(childNode);
+				}
+			}
+		}
+		logger.debug("[" + node.getDepth() + "]" + "Time Taken : "
+				+ (System.currentTimeMillis() - start) + "ms");
+	}
+
+	public String getResponse(String uri) throws Exception {
+		ResponseEntity<String> response = getHttp().getForEntity(uri,
+				String.class);
+		if (response.getHeaders().getContentType()
+				.includes(MediaType.TEXT_HTML)) {
+			String responseBody = response.getBody();
+			return responseBody;
+		} else
+			throw new Exception("Not a HTML Response for " + uri);
 	}
 
 	public boolean validURL(String url) {
@@ -137,44 +163,58 @@ public class CrawlServiceImpl implements CrawlService {
 		return processNode(mainNode, options);
 	}
 
-	public ArrayList<Response> processInputs(List<Response> inputs,
+	public ArrayList<Response> processChildNodes(List<Response> inputs,
 			Options options) throws InterruptedException, ExecutionException {
-
-		int threads = Runtime.getRuntime().availableProcessors();
-		ExecutorService service = Executors.newFixedThreadPool(threads);
-		int linkCounter = 0;
-
-		List<Future<Response>> futures = new ArrayList<Future<Response>>();
-		for (final Response input : inputs) {
-			if (linkCounter < options.getMaxLinksperNode()) {
-				Callable<Response> callable = new Callable<Response>() {
-					public Response call() throws Exception {
-						if (cache.get(input.getUri()) != null) {
-							logger.debug("Returning from Local Cache "
-									+ cache.size());
-							return cache.get(input.getUri());
-						} else {
-							Response fetch = processNode(input, options);
-							cache.put(input.getUri(), fetch);
-							logger.debug("Loading and Returning from Local Cache "
-									+ cache.size());
-							return cache.get(input.getUri());
-						}
-					}
-				};
-				futures.add(service.submit(callable));
-			}
-			linkCounter++;
-		}
-
-		service.shutdown();
-
+		long start = System.currentTimeMillis();
 		ArrayList<Response> outputs = new ArrayList<Response>();
-		for (Future<Response> future : futures) {
-			if (null != future.get())
-				outputs.add(future.get());
+		Response processed;
+		for(Response input:inputs){
+			processed = processNode(input, options);
+			if(processed!=null){
+			outputs.add(processNode(input, options));
+			}
 		}
+		
+		
+//         long start = System.currentTimeMillis();
+//		int threads = Runtime.getRuntime().availableProcessors();
+//		ExecutorService service = Executors.newFixedThreadPool(threads);
+//		int linkCounter = 0;
+//
+//		List<Future<Response>> futures = new ArrayList<Future<Response>>();
+//		for (final Response input : inputs) {
+//			if (linkCounter < options.getMaxLinksperNode()) {
+//				Callable<Response> callable = new Callable<Response>() {
+//					public Response call() throws Exception {
+//						return processNode(input, options);
+//					}
+//				};
+//				futures.add(service.submit(callable));
+//			}
+//			linkCounter++;
+//		}
+//
+//		service.shutdown();
+//
+//		ArrayList<Response> outputs = new ArrayList<Response>();
+//		for (Future<Response> future : futures) {
+//			if (null != future.get())
+//				outputs.add(future.get());
+//		}
+		
+		logger.debug("Time Taken on Nodes:: " + (System.currentTimeMillis() - start)+"ms");
 		return outputs;
+	}
+
+	@Override
+	public boolean cacheClear() {
+		try {
+			cache.clear();
+			return true;
+		} catch (Exception e) {
+			return false;
+		}
+
 	}
 
 	public RestTemplate getHttp() {

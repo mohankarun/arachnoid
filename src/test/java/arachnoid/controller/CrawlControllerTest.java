@@ -1,6 +1,7 @@
 package arachnoid.controller;
 
 import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -20,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import arachnoid.server.App;
 import arachnoid.service.CrawlService;
+import arachnoid.service.CrawlServiceImpl;
 import arachnoid.to.Options;
 import arachnoid.to.Response;
 @RunWith(SpringRunner.class)
@@ -99,11 +101,27 @@ public class CrawlControllerTest {
 			      .andExpect(status().isNotFound());
 	}
 	
-	@Test public void testCrawlerforException() throws Exception {
+	@Test 
+	public void testCrawlerforException() throws Exception {
 		Mockito.when(service.crawl(org.mockito.Matchers.anyString(), org.mockito.Matchers.any(Options.class))).thenReturn(null);
 		mvc.perform(get("/crawl?uri=http://www.test.com")
 			      .contentType(MediaType.APPLICATION_JSON))
 			      .andExpect(status().isOk());
+	}
+	
+	@Test 
+	public void testCrawlerforClearingCache() throws Exception {
+		//Mockito.when(service.cacheClear()).thenReturn(true);
+		 CrawlService local = new CrawlServiceImpl();
+		 assertTrue(local.cacheClear());
+		mvc.perform(get("/crawl/cache/clear")
+			      .contentType(MediaType.APPLICATION_JSON))
+			      .andExpect(status().isOk());
+		Mockito.when(service.cacheClear()).thenReturn(false);
+		mvc.perform(get("/crawl/cache/clear")
+			      .contentType(MediaType.APPLICATION_JSON))
+			      .andExpect(status().isOk())
+			      .andExpect(jsonPath("$.status", is("Failed")));
 	}
 	
 	

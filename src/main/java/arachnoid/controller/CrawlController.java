@@ -52,6 +52,7 @@ public class CrawlController extends BaseController{
 			Integer maxDepth, Integer maxLinksperNode) throws JsonProcessingException {
 		
 		try {
+			long start = System.currentTimeMillis();
 			if(null== maxLinksperNode) maxLinksperNode = Constants.Defaults.maxLinksperNode;
 			if(null== maxDepth) maxDepth = Constants.Defaults.maxDepth;
 			Options options = new Options();
@@ -59,6 +60,7 @@ public class CrawlController extends BaseController{
 			options.setMaxLinksperNode(maxLinksperNode);
 			
 			Response nodes = service.crawl(uri,options);
+			logger.info("Returning the response to User in "+(System.currentTimeMillis() - start )+"ms");
 			if (nodes != null)
 				return map.writeValueAsString(nodes);
 			else
@@ -72,6 +74,20 @@ public class CrawlController extends BaseController{
 			return map.writeValueAsString(error);
 		}
 
+	}
+	@RequestMapping(value = "/crawl/cache/clear", method = RequestMethod.GET, produces = "application/json")
+	public String cacheClear() throws JsonProcessingException{
+		Error cacheResponse = new Error();
+		if (service.cacheClear())
+		{
+			cacheResponse.setStatus("Success");
+			cacheResponse.setMessage("Cache Cleared");
+		}
+		else{
+			cacheResponse.setStatus("Failed");
+			cacheResponse.setMessage("Cache Clear Failed, Try again");
+		}
+		return map.writeValueAsString(cacheResponse);
 	}
 
 }

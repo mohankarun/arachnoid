@@ -17,6 +17,13 @@ public class Options {
 		this.maxLinksperNode = maxLinksperNode;
 	}
 	
-	
+	@Override
+	public String toString() {
+		StringBuffer sb = new StringBuffer();
+		sb.append("Options [ depth="+depth);
+		sb.append(", maxLinksperNode="+maxLinksperNode+"]");		
+		return sb.toString();
+		
+	}
 	
 }

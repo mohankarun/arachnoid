@@ -39,7 +39,7 @@ public class CrawlServiceImplTest {
     ResponseEntity mockResponse;
     
     @Before
-    public void setUp() throws InterruptedException, ExecutionException{
+    public void setUp() throws Exception{
     	//mockResponse = new ResponseEntity<String>(HttpStatus.OK);
     	HttpHeaders headers = new HttpHeaders();
     	headers.setContentType(MediaType.TEXT_HTML);
@@ -47,30 +47,26 @@ public class CrawlServiceImplTest {
 		Mockito.when(mockResponse.getBody())
 				.thenReturn(
 						"<head><title>Zero-d IN</title></head><a href=\"http://i.me.myself\"</a><a href=\"ftp://i.me.myself\"</a><a href=\"//i.agnostic.myself/\"</a><a href=\"/i.relative.myself\"</a>");
-	Mockito.when(service.getResponse(anyString())).thenReturn(mockResponse);
-//    	ArrayList<Response> nodes = new ArrayList<Response>();
-//    	nodes.add(new Response("http://a.com/","A"));
-//    	nodes.add(new Response("//b.com","B"));
-//    	nodes.add(new Response("/c","C"));
-//    	service.updateHttp(http);
-//    	Mockito.when(service.processInputs(Matchers.anyList(), Matchers.anyObject())).thenReturn(nodes);
-    	Mockito.when(http.getForEntity(anyString(), Mockito.any())).thenReturn(mockResponse);
+	//Mockito.when(service.getResponse(anyString())).thenReturn("<head><title>Zero-d IN</title></head><a href=\"http://i.me.myself\"</a><a href=\"ftp://i.me.myself\"</a><a href=\"//i.agnostic.myself/\"</a><a href=\"/i.relative.myself\"</a>");
+    Mockito.when(http.getForEntity(anyString(), Mockito.any())).thenReturn(mockResponse);
+    service.updateHttp(http);
     	}
  
     @Test
-    public void crawlTest() throws InterruptedException, ExecutionException {
+    public void crawlTest() throws Exception {
     	ArrayList<Response> nodes = new ArrayList<Response>();
     	nodes.add(new Response("http://a.com/","A"));
     	nodes.add(new Response("//b.com","B"));
     	nodes.add(new Response("/c","C"));
-    	Mockito.when(service.processInputs(Matchers.anyList(), Matchers.anyObject())).thenReturn(nodes);
+    	Mockito.when(service.processChildNodes(Matchers.anyList(), Matchers.anyObject())).thenReturn(nodes);
     	Options pref  = new Options();
     	pref.setDepth(1);
+    	pref.setMaxLinksperNode(2);
         Response response = service.crawl("http://blah.com", pref);
         
         Mockito.verify(service).validURL("http://blah.com");
         Mockito.verify(service).getResponse("http://blah.com");
-        Mockito.verify(service,times(2)).getHttp();
+        Mockito.verify(service,times(1)).getHttp();
         
         assertEquals("Zero-d IN",response.getTitle());
         assertEquals(3,response.getNodes().size());
@@ -88,7 +84,7 @@ public class CrawlServiceImplTest {
     
     
     @Test
-    public void crawlTestError() throws InterruptedException, ExecutionException {
+    public void crawlTestError() throws Exception {
     	Mockito.when(service.getResponse(anyString())).thenReturn(null);
     	Options pref  = new Options();
     	pref.setDepth(1);
@@ -96,6 +92,32 @@ public class CrawlServiceImplTest {
         Response response = service.crawl("//blah.com", pref);
         assertNull(response);
     }
+    
+    @Test(expected = Exception.class)
+    public void crawlTestnonHTML() throws Exception {
+    	HttpHeaders headers = new HttpHeaders();
+    	headers.setContentType(MediaType.APPLICATION_JSON);
+    	Mockito.when(mockResponse.getHeaders()).thenReturn(headers);
+        Mockito.when(http.getForEntity(anyString(), Mockito.any())).thenReturn(mockResponse);
+        service.updateHttp(http);
+        service.getResponse("http://json.com");
+    }
+    
+    @Test
+    public void crawlTestnullResponse() throws Exception {
+    	HttpHeaders headers = new HttpHeaders();
+    	headers.setContentType(MediaType.APPLICATION_JSON);
+    	Mockito.when(mockResponse.getHeaders()).thenReturn(headers);
+    	Mockito.when(mockResponse.getBody()).thenReturn(null);
+        Mockito.when(http.getForEntity(anyString(), Mockito.any())).thenReturn(mockResponse);
+        service.updateHttp(http);
+        Options pref  = new Options();
+    	pref.setDepth(1);
+    	pref.setMaxLinksperNode(1);
+        service.crawl("https://blah.com", pref);
+    }
+    
+    
     
     @Test 
     public void crawlTestProcessor() throws Exception {
@@ -111,7 +133,7 @@ public class CrawlServiceImplTest {
     	ArrayList<Response> childNodes = new ArrayList<Response>();
     	childNodes.add(a);
     	childNodes.add(b);
-    	ArrayList<Response> processed = service.processInputs(childNodes, pref);
+    	ArrayList<Response> processed = service.processChildNodes(childNodes, pref);
     	assertEquals(2,processed.size());
     	
     }
@@ -125,5 +147,6 @@ public class CrawlServiceImplTest {
         Mockito.verify(service).validURL("blah");
         assertNull(response);
     }
+    
    
 }

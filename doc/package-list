@@ -1,6 +1,5 @@
 arachnoid.common
 arachnoid.controller
-arachnoid.exception
 arachnoid.server
 arachnoid.service
 arachnoid.to

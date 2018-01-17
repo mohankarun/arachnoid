@@ -42,14 +42,17 @@ Once the server is started , we can use a browser or commandline tools to make a
 Below table describes the possible ways to use the crawler
 
 QueryParameter |Required| Description
---- | --- | --- | --- 
+--- | --- | --- | 
 uri | Yes | The parent url to crawl and generate the crawl report |
+
+
+Pathbased Urls below
 
 Paths |Parameters| Description
 --- | --- | --- |
- /crawl | **name**: uri ,**method**: QueryString|Reads the provided url parameter and generate the crawl report *with Defaults* **Depth** : 3 , **maxLinksperNode** : 25 |
-/crawl/depth/{maxDepth}| **name**: uri **method**: QueryString,**name**: maxDepth ,**method**: PathParam | Reads the provided url parameter and generate the crawl report with defined *maxDepth* and **maxLinksperNode** : 25 |
-/crawl/nodeLinks/{maxNodeLinksperNode}|**name**: uri ,**method**: QueryString | Reads the provided url parameter and generate the crawl report *with* **Depth** : 3 , and defined maxLinksperNode|
+ /crawl | **name**: uri ,**method**: QueryString|Reads the provided url parameter and generate the crawl report *with Defaults* **Depth** : 2 , **maxLinksperNode** : 5 |
+/crawl/depth/{maxDepth}| **name**: uri **method**: QueryString,**name**: maxDepth ,**method**: PathParam | Reads the provided url parameter and generate the crawl report with defined *maxDepth* and **maxLinksperNode** : 5 |
+/crawl/nodeLinks/{maxNodeLinksperNode}|**name**: uri ,**method**: QueryString | Reads the provided url parameter and generate the crawl report *with* **Depth** : 2 , and defined maxLinksperNode|
 /crawl/depth/{maxDepth}/nodeLinks/{maxNodeLinksperNode}| **name**: uri **method**: QueryString,**name**: maxDepth **method**: PathParam, **name**: maxNodeLinksperNode **method**: PathParam | Reads the provided url query parameter and generate the crawl report with user defined depth and nodelinks |
 
 ### Response format 

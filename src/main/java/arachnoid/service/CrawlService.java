@@ -7,4 +7,6 @@ public interface CrawlService {
 
 public Response crawl(String uri,Options options) ;
 
+public boolean cacheClear();
+
 }
